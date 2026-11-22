@@ -1,0 +1,375 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<link rel="icon" href="data:," />
+<style>html,body{margin:0;background:#151714;overflow:hidden}canvas{display:block}</style>
+<script type="importmap">
+{ "imports": { "three": "/node_modules/three/build/three.module.js", "three/addons/": "/node_modules/three/examples/jsm/" } }
+</script>
+</head>
+<body>
+<script type="module">
+import * as THREE from "three";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { FontLoader } from "three/addons/loaders/FontLoader.js";
+import { TextGeometry } from "three/addons/geometries/TextGeometry.js";
+
+/* "Website development" loop: a page assembles inside a 3D browser while code types
+   in an editor, a phone builds the responsive layout and a cursor clicks the CTA.
+   Every motion is a function of u = frame/N in [0,1) and returns to its start => seamless loop. */
+
+const q = new URLSearchParams(location.search);
+const W = Number(q.get("w") || 1920), H = Number(q.get("h") || 1080);
+const FPS = 30, T = 12, N = FPS * T;
+const TAU = Math.PI * 2;
+
+let seed = 11;
+const rand = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+const clamp01 = (x) => Math.min(1, Math.max(0, x));
+const seg = (u, a, d) => clamp01((u - a) / d);
+const outBack = (x) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const outCubic = (x) => 1 - Math.pow(1 - x, 3);
+const inCubic = (x) => x * x * x;
+const inOutSine = (x) => -(Math.cos(Math.PI * x) - 1) / 2;
+const bump = (u, a, d) => Math.sin(Math.PI * seg(u, a, d));
+
+// ---------- Renderer / scene ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setSize(W, H);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const BG = new THREE.Color("#151714");
+scene.background = BG;
+scene.fog = new THREE.Fog(BG, 18, 36);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.55;
+const camera = new THREE.PerspectiveCamera(32, W / H, 0.1, 100);
+
+const key = new THREE.DirectionalLight("#ffffff", 2.3);
+key.position.set(4, 11, 8);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+Object.assign(key.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9, near: 1, far: 34 });
+key.shadow.bias = -0.0004;
+scene.add(key);
+const rim = new THREE.PointLight("#cbf36b", 45, 18, 2);
+rim.position.set(-5, 4, -4.5);
+scene.add(rim);
+const rim2 = new THREE.PointLight("#ffffff", 18, 16, 2);
+rim2.position.set(6, 5, -3);
+scene.add(rim2);
+scene.add(new THREE.HemisphereLight("#ffffff", "#1b1e19", 0.35));
+
+// ---------- Materials ----------
+const LIME = new THREE.Color("#cbf36b");
+const M = {
+  floor: new THREE.MeshStandardMaterial({ color: "#191b17", roughness: 0.95 }),
+  plinth: new THREE.MeshPhysicalMaterial({ color: "#22251f", roughness: 0.7, clearcoat: 0.25, clearcoatRoughness: 0.5 }),
+  glow: new THREE.MeshStandardMaterial({ color: LIME, emissive: LIME, emissiveIntensity: 0.75 }),
+  frame: new THREE.MeshPhysicalMaterial({ color: "#1e211c", roughness: 0.35, metalness: 0.3, clearcoat: 1, clearcoatRoughness: 0.2 }),
+  bar: new THREE.MeshPhysicalMaterial({ color: "#2c3029", roughness: 0.4, clearcoat: 0.6 }),
+  screen: new THREE.MeshPhysicalMaterial({ color: "#f3f2ec", roughness: 0.6, clearcoat: 0.3 }),
+  ink: new THREE.MeshPhysicalMaterial({ color: "#232720", roughness: 0.35, clearcoat: 0.8 }),
+  grey: new THREE.MeshPhysicalMaterial({ color: "#b9bcb2", roughness: 0.5 }),
+  white: new THREE.MeshPhysicalMaterial({ color: "#ffffff", roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.15 }),
+  lime: new THREE.MeshPhysicalMaterial({ color: LIME, roughness: 0.3, clearcoat: 1, emissive: "#5f7f1a", emissiveIntensity: 0.3 }),
+  limeSoft: new THREE.MeshPhysicalMaterial({ color: "#dff7a4", roughness: 0.45, clearcoat: 0.6 }),
+  glass: new THREE.MeshPhysicalMaterial({ color: "#ffffff", transmission: 1, roughness: 0.06, thickness: 0.8, ior: 1.45, clearcoat: 1 }),
+  codeLime: new THREE.MeshStandardMaterial({ color: LIME, emissive: LIME, emissiveIntensity: 0.35, roughness: 0.4 }),
+  codeWhite: new THREE.MeshStandardMaterial({ color: "#e9e8e0", emissive: "#e9e8e0", emissiveIntensity: 0.12, roughness: 0.4 }),
+  codeGrey: new THREE.MeshStandardMaterial({ color: "#6d7268", roughness: 0.5 }),
+  codeSage: new THREE.MeshStandardMaterial({ color: "#9fbf7a", emissive: "#9fbf7a", emissiveIntensity: 0.15, roughness: 0.5 }),
+};
+
+const box = (w, h, d, mat, r = 0.04, seg = 3) => {
+  const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, seg, Math.min(r, w / 2 - 0.001, h / 2 - 0.001, d / 2 - 0.001)), mat);
+  m.castShadow = true;
+  m.receiveShadow = true;
+  return m;
+};
+const at = (m, x, y, z = 0) => (m.position.set(x, y, z), m);
+
+// ---------- Stage ----------
+const floor = new THREE.Mesh(new THREE.CircleGeometry(40, 96), M.floor);
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+const plinth = new THREE.Mesh(new THREE.CylinderGeometry(4.6, 4.8, 0.32, 128), M.plinth);
+plinth.position.y = 0.16;
+plinth.receiveShadow = true;
+scene.add(plinth);
+const edge = new THREE.Mesh(new THREE.TorusGeometry(4.62, 0.022, 12, 220), M.glow);
+edge.rotation.x = Math.PI / 2;
+edge.position.y = 0.325;
+scene.add(edge);
+
+// ---------- Browser ----------
+const browser = new THREE.Group();
+scene.add(browser);
+browser.add(box(6.2, 4.0, 0.16, M.frame, 0.12, 5));
+browser.add(at(box(6.0, 0.42, 0.04, M.bar, 0.08), 0, 1.74, 0.09));
+[["#cbf36b", -2.75], ["#e9e8e0", -2.52], ["#6d7268", -2.29]].forEach(([c, x]) => {
+  const d = new THREE.Mesh(new THREE.SphereGeometry(0.065, 24, 24), new THREE.MeshStandardMaterial({ color: c, roughness: 0.4 }));
+  browser.add(at(d, x, 1.74, 0.13));
+});
+browser.add(at(box(2.4, 0.2, 0.03, M.frame, 0.1), 0, 1.74, 0.12));
+browser.add(at(box(0.9, 0.05, 0.02, M.codeGrey, 0.02), -0.45, 1.74, 0.14));
+browser.add(at(box(6.0, 3.38, 0.04, M.screen, 0.06), 0, -0.19, 0.09));
+const Z = 0.16; // front face of the page canvas
+
+// Blocks that assemble on the page (k = order)
+const blocks = [];
+const block = (k, build, base) => {
+  const g = new THREE.Group();
+  build(g);
+  browser.add(g);
+  blocks.push({ k, g, base: new THREE.Vector3(base[0], base[1], Z) });
+  return g;
+};
+// k0 nav
+block(0, (g) => {
+  g.add(at(box(0.36, 0.18, 0.06, M.lime, 0.05), -2.55, 0));
+  [0.95, 1.5, 2.05].forEach((x) => g.add(at(box(0.4, 0.08, 0.04, M.grey, 0.03), x, 0)));
+  g.add(at(box(0.48, 0.2, 0.06, M.ink, 0.09), 2.64, 0));
+}, [0, 1.2]);
+// k1 headline
+block(1, (g) => {
+  g.add(at(box(2.5, 0.26, 0.07, M.ink, 0.06), -1.3, 0.55));
+  g.add(at(box(1.8, 0.26, 0.07, M.ink, 0.06), -1.65, 0.19));
+  g.add(at(box(2.2, 0.08, 0.04, M.grey, 0.03), -1.45, -0.12));
+}, [0, 0]);
+// k2 CTA button (cursor target)
+const btn = block(2, (g) => {
+  g.add(at(box(0.95, 0.3, 0.1, M.lime, 0.14, 4), 0, 0));
+  g.add(at(box(0.45, 0.06, 0.03, M.ink, 0.02), -0.05, 0, 0.06));
+}, [-2.07, -0.48]);
+// k3 hero image
+block(3, (g) => {
+  g.add(at(box(2.3, 1.5, 0.1, M.limeSoft, 0.1, 4), 0, 0));
+  const sun = new THREE.Mesh(new THREE.SphereGeometry(0.22, 32, 32), M.white);
+  sun.castShadow = true;
+  g.add(at(sun, 0.55, 0.3, 0.2));
+  g.add(at(box(1.3, 0.5, 0.12, M.lime, 0.08), -0.3, -0.38, 0.06));
+  g.add(at(box(0.8, 0.75, 0.14, M.ink, 0.08), 0.6, -0.26, 0.08));
+}, [1.55, 0.14]);
+// k4-6 cards
+const cards = [-1.95, 0, 1.95].map((x, i) =>
+  block(4 + i, (g) => {
+    g.add(at(box(1.75, 0.85, 0.08, M.white, 0.08, 4), 0, 0));
+    g.add(at(new THREE.Mesh(new THREE.SphereGeometry(0.09, 24, 24), i === 1 ? M.lime : M.ink), -0.62, 0.2, 0.07));
+    g.add(at(box(0.9, 0.07, 0.03, M.ink, 0.03), -0.05, 0.2, 0.05));
+    g.add(at(box(1.35, 0.05, 0.03, M.grey, 0.02), 0, -0.04, 0.05));
+    g.add(at(box(1.0, 0.05, 0.03, M.grey, 0.02), -0.17, -0.2, 0.05));
+  }, [x, -1.27])
+);
+
+// ---------- Code editor ----------
+const editor = new THREE.Group();
+scene.add(editor);
+editor.add(box(2.9, 2.35, 0.12, M.frame, 0.1, 4));
+[["#cbf36b", -1.22], ["#e9e8e0", -1.06], ["#6d7268", -0.9]].forEach(([c, x]) => {
+  editor.add(at(new THREE.Mesh(new THREE.SphereGeometry(0.045, 16, 16), new THREE.MeshStandardMaterial({ color: c })), x, 0.98, 0.08));
+});
+const codeMats = { l: M.codeLime, w: M.codeWhite, g: M.codeGrey, s: M.codeSage };
+const code = [
+  [0, [[0.55, "l"], [0.7, "w"]]],
+  [0.18, [[0.4, "s"], [0.9, "w"]]],
+  [0.36, [[0.6, "l"], [0.35, "g"], [0.5, "w"]]],
+  [0.36, [[0.85, "w"], [0.4, "s"]]],
+  [0.18, [[0.3, "g"]]],
+  [0.18, [[0.5, "l"], [0.65, "s"]]],
+  [0.36, [[1.1, "w"], [0.3, "l"]]],
+  [0.18, [[0.3, "g"]]],
+  [0, [[0.25, "l"]]],
+];
+const codeLines = code.map(([indent, segs], j) => {
+  const line = new THREE.Group();
+  let x = -1.22 + indent;
+  segs.forEach(([len, c]) => {
+    const g = new RoundedBoxGeometry(len, 0.075, 0.03, 2, 0.035);
+    g.translate(len / 2, 0, 0); // anchor at left edge so scale.x "types" it
+    const m = new THREE.Mesh(g, codeMats[c]);
+    m.position.x = x;
+    line.add(m);
+    x += len + 0.08;
+  });
+  line.position.set(0, 0.7 - j * 0.2, 0.08);
+  line.userData.end = x - 0.04;
+  editor.add(line);
+  return line;
+});
+const caret = at(box(0.04, 0.15, 0.03, M.codeLime, 0.015), 0, 0, 0.09);
+editor.add(caret);
+
+// ---------- Phone ----------
+const phone = new THREE.Group();
+scene.add(phone);
+phone.add(box(1.15, 2.3, 0.12, M.frame, 0.16, 5));
+phone.add(at(box(1.0, 2.08, 0.02, M.screen, 0.12, 4), 0, 0, 0.065));
+phone.add(at(box(0.3, 0.06, 0.02, M.ink, 0.03), 0, 0.96, 0.08));
+const phoneBlocks = [
+  [0, 0.8, () => [at(box(0.18, 0.09, 0.03, M.lime, 0.03), -0.3, 0), at(box(0.12, 0.05, 0.02, M.ink, 0.02), 0.32, 0)]],
+  [1, 0.45, () => [at(box(0.8, 0.12, 0.04, M.ink, 0.04), 0, 0.06), at(box(0.6, 0.12, 0.04, M.ink, 0.04), -0.1, -0.12)]],
+  [2, 0.12, () => [at(box(0.42, 0.14, 0.05, M.lime, 0.07), -0.19, 0)]],
+  [3, -0.3, () => [at(box(0.8, 0.55, 0.05, M.limeSoft, 0.06), 0, 0)]],
+  [4, -0.8, () => [at(box(0.8, 0.32, 0.05, M.white, 0.05), 0, 0)]],
+].map(([k, y, make]) => {
+  const g = new THREE.Group();
+  make().forEach((m) => g.add(m));
+  phone.add(g);
+  return { k, g, base: new THREE.Vector3(0, y, 0.1) };
+});
+
+// ---------- "</>" glyph ----------
+const glyph = new THREE.Group();
+scene.add(glyph);
+
+// ---------- Cursor ----------
+const arrowShape = new THREE.Shape();
+[[0, 0], [0, -0.62], [0.15, -0.48], [0.27, -0.74], [0.37, -0.69], [0.25, -0.44], [0.46, -0.44]].forEach(([x, y], i) => (i ? arrowShape.lineTo(x, y) : arrowShape.moveTo(x, y)));
+arrowShape.closePath();
+const cursor = new THREE.Mesh(
+  new THREE.ExtrudeGeometry(arrowShape, { depth: 0.07, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 3 }),
+  M.white
+);
+cursor.castShadow = true;
+scene.add(cursor);
+
+// ---------- Decor ----------
+const orb = new THREE.Mesh(new THREE.SphereGeometry(0.42, 64, 64), M.glass);
+scene.add(orb);
+const pebble = new THREE.Mesh(new THREE.SphereGeometry(0.16, 32, 32), M.lime);
+pebble.castShadow = true;
+scene.add(pebble);
+const dustGeo = new THREE.BufferGeometry();
+const pts = [];
+for (let i = 0; i < 260; i++) {
+  const a = rand() * TAU, r = 3 + rand() * 9, y = rand() * 8;
+  pts.push(Math.cos(a) * r, y, Math.sin(a) * r);
+}
+dustGeo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ color: "#d9f59a", size: 0.035, transparent: true, opacity: 0.5 }));
+scene.add(dust);
+
+// ---------- Animation ----------
+const presence = (u, k, start = 0.05, step = 0.05) => ({
+  inn: outBack(seg(u, start + k * step, 0.11)),
+  out: inCubic(seg(u, 0.84 + k * 0.012, 0.09)),
+});
+const tmp = new THREE.Vector3();
+
+function update(frame) {
+  const u = (frame % N) / N;
+  const s = Math.sin(TAU * u), c = Math.cos(TAU * u);
+
+  // browser floats
+  browser.position.set(0, 2.55 + 0.08 * Math.sin(TAU * u * 2), 0.3);
+  browser.rotation.set(-0.04 + 0.02 * c, 0.05 * s, 0);
+
+  blocks.forEach(({ k, g, base }) => {
+    const { inn, out } = presence(u, k);
+    const vis = inn * (1 - out);
+    g.visible = vis > 0.001;
+    g.scale.setScalar(Math.max(0.001, vis));
+    g.position.set(base.x, base.y - 0.7 * (1 - inn) + 0.5 * out, base.z + 2.4 * (1 - inn) + 1.6 * out);
+    g.rotation.set(0.7 * (1 - inn) - 0.4 * out, 0, 0);
+  });
+  // hover lift on cards during the hold
+  cards.forEach((g, i) => { g.position.z += 0.22 * bump(u, 0.6 + i * 0.07, 0.12); });
+  // button press when the cursor clicks
+  const press = bump(u, 0.5, 0.05);
+  btn.scale.multiplyScalar(1 - 0.12 * press);
+  M.lime.emissiveIntensity = 0.3 + 0.9 * press;
+
+  // editor: typing then clearing
+  editor.position.set(-5.0, 3.15 + 0.12 * Math.sin(TAU * u + 1), -2.0);
+  editor.rotation.set(-0.05, 0.5 + 0.05 * s, 0.02);
+  let caretLine = codeLines[0], caretX = -1.22;
+  const clear = inCubic(seg(u, 0.85, 0.08));
+  codeLines.forEach((line, j) => {
+    const p = outCubic(seg(u, 0.03 + j * 0.042, 0.045));
+    line.children.forEach((m) => { m.scale.x = Math.max(0.001, p * (1 - clear)); m.visible = p * (1 - clear) > 0.002; });
+    if (p > 0 && clear === 0) {
+      caretLine = line;
+      const first = line.children[0].position.x;
+      caretX = first + (line.userData.end - first) * p + 0.06;
+    }
+  });
+  caret.position.set(clear > 0 ? -1.16 : caretX, caretLine.position.y, 0.09);
+  caret.visible = Math.sin(TAU * u * 18) > -0.2;
+
+  // phone builds the responsive layout
+  phone.position.set(4.9, 2.1 + 0.12 * Math.sin(TAU * u + 2.4), -0.6);
+  phone.rotation.set(0.02, -0.55 + 0.06 * c, 0.03 * s);
+  phoneBlocks.forEach(({ k, g, base }) => {
+    const { inn, out } = presence(u, k, 0.12, 0.05);
+    const vis = inn * (1 - out);
+    g.visible = vis > 0.001;
+    g.scale.setScalar(Math.max(0.001, vis));
+    g.position.set(base.x, base.y - 0.3 * (1 - inn), base.z + 0.8 * (1 - inn) + 0.6 * out);
+  });
+
+  // glyph
+  glyph.position.set(4.95, 4.15 + 0.15 * Math.sin(TAU * u + 0.5), -0.7);
+  glyph.rotation.set(0.1, -0.35 + 0.25 * s, 0.05 * c);
+
+  // cursor path: in -> click CTA -> drift -> out
+  btn.updateWorldMatrix(true, false);
+  const target = btn.getWorldPosition(tmp).clone().add(new THREE.Vector3(0.02, 0.1, 0.3));
+  const start = target.clone().add(new THREE.Vector3(3.0, -1.8, 1.6));
+  const leave = target.clone().add(new THREE.Vector3(1.6, -0.5, 0.9));
+  const pIn = inOutSine(seg(u, 0.36, 0.12));
+  const pOut = inOutSine(seg(u, 0.57, 0.14));
+  const pos = start.clone().lerp(target, pIn).lerp(leave, pOut);
+  cursor.position.copy(pos);
+  cursor.quaternion.copy(camera.quaternion);
+  const cScale = outBack(seg(u, 0.33, 0.05)) * (1 - inCubic(seg(u, 0.7, 0.06))) * (1 - 0.15 * press);
+  cursor.scale.setScalar(Math.max(0.001, cScale));
+  cursor.visible = cScale > 0.002;
+
+  orb.position.set(-3.3, 1.0 + 0.2 * Math.sin(TAU * u + 1.4), 1.6);
+  const pa = 0.6 + TAU * u;
+  pebble.position.set(Math.cos(pa) * 4.2, 0.75 + 0.15 * Math.sin(pa * 2), Math.sin(pa) * 4.2);
+  dust.rotation.y = 0.25 * s;
+
+  const ang = -0.12 + 0.2 * s;
+  const R = 15.2;
+  camera.position.set(Math.sin(ang) * R, 4.4 + 0.35 * Math.sin(TAU * u + 0.8), Math.cos(ang) * R);
+  camera.lookAt(0, 2.15, 0);
+  camera.updateMatrixWorld();
+  cursor.quaternion.copy(camera.quaternion);
+}
+
+window.renderFrame = (f) => { update(f); renderer.render(scene, camera); };
+window.renderAll = async (from = 0, to = N) => {
+  for (let f = from; f < to; f++) {
+    window.renderFrame(f);
+    const blob = await new Promise((r) => renderer.domElement.toBlob(r, "image/jpeg", 0.93));
+    await fetch(`/frame/${f}`, { method: "POST", body: blob });
+    document.title = `frame ${f + 1}/${N}`;
+  }
+  document.title = "done";
+};
+
+new FontLoader().load("/node_modules/three/examples/fonts/helvetiker_bold.typeface.json", (font) => {
+  const g = new TextGeometry("</>", { font, size: 0.62, depth: 0.16, curveSegments: 10, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.02, bevelSegments: 4 });
+  g.center();
+  const m = new THREE.Mesh(g, M.lime);
+  m.castShadow = true;
+  glyph.add(m);
+  window.renderFrame(Number(q.get("f") || 0));
+  document.title = "ready";
+  if (q.get("auto") === "1") window.renderAll();
+});
+</script>
+</body>
+</html>
