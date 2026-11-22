@@ -1,0 +1,11 @@
+node_modules
+.next
+out
+*.tsbuildinfo
+next-env.d.ts
+.env*.local
+.DS_Store
+.playwright-mcp
+tools/build-3d/node_modules
+tools/build-3d/frames
+config.bat

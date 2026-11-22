@@ -1,0 +1,236 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<link rel="icon" href="data:," />
+<style>html,body{margin:0;background:#0f110e;overflow:hidden}canvas{display:block}</style>
+<script type="importmap">
+{ "imports": { "three": "/node_modules/three/build/three.module.js", "three/addons/": "/node_modules/three/examples/jsm/" } }
+</script>
+</head>
+<body>
+<script type="module">
+import * as THREE from "three";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { FontLoader } from "three/addons/loaders/FontLoader.js";
+import { TextGeometry } from "three/addons/geometries/TextGeometry.js";
+
+/* Hero background: an endless drift through floating web-development UI
+   (browsers, code editors, phones, components, code glyphs).
+   Objects move toward the camera by exactly one field length L per loop and wrap
+   inside the fog, so frame N == frame 0 (seamless). The centre stays clear for the headline. */
+
+const q = new URLSearchParams(location.search);
+const W = Number(q.get("w") || 1920), H = Number(q.get("h") || 1080);
+const FPS = 30, T = 16, N = FPS * T;
+const TAU = Math.PI * 2;
+const L = 66, NEAR = 6, FAR = NEAR - L;
+
+let seed = 2026;
+const rand = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+const pick = (arr) => arr[Math.floor(rand() * arr.length)];
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setSize(W, H);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const BG = new THREE.Color("#0f110e");
+scene.background = BG;
+scene.fog = new THREE.Fog(BG, 12, 58);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.5;
+const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 120);
+
+const key = new THREE.DirectionalLight("#ffffff", 1.8);
+key.position.set(4, 8, 10);
+scene.add(key);
+const limeL = new THREE.PointLight("#cbf36b", 60, 30, 1.6);
+limeL.position.set(-9, -3, -6);
+scene.add(limeL);
+const limeR = new THREE.PointLight("#cbf36b", 40, 30, 1.6);
+limeR.position.set(10, 5, -14);
+scene.add(limeR);
+scene.add(new THREE.HemisphereLight("#ffffff", "#111310", 0.35));
+
+const LIME = new THREE.Color("#cbf36b");
+const M = {
+  frame: new THREE.MeshPhysicalMaterial({ color: "#1e211c", roughness: 0.35, metalness: 0.3, clearcoat: 1, clearcoatRoughness: 0.2 }),
+  bar: new THREE.MeshPhysicalMaterial({ color: "#2c3029", roughness: 0.4, clearcoat: 0.6 }),
+  screen: new THREE.MeshPhysicalMaterial({ color: "#f3f2ec", roughness: 0.6, clearcoat: 0.3 }),
+  screenDark: new THREE.MeshPhysicalMaterial({ color: "#20241e", roughness: 0.5, clearcoat: 0.4 }),
+  ink: new THREE.MeshPhysicalMaterial({ color: "#232720", roughness: 0.35, clearcoat: 0.8 }),
+  grey: new THREE.MeshPhysicalMaterial({ color: "#b9bcb2", roughness: 0.5 }),
+  white: new THREE.MeshPhysicalMaterial({ color: "#ffffff", roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.15 }),
+  lime: new THREE.MeshPhysicalMaterial({ color: LIME, roughness: 0.3, clearcoat: 1, emissive: "#5f7f1a", emissiveIntensity: 0.45 }),
+  limeSoft: new THREE.MeshPhysicalMaterial({ color: "#dff7a4", roughness: 0.45, clearcoat: 0.6 }),
+  codeLime: new THREE.MeshStandardMaterial({ color: LIME, emissive: LIME, emissiveIntensity: 0.45 }),
+  codeWhite: new THREE.MeshStandardMaterial({ color: "#e9e8e0", emissive: "#e9e8e0", emissiveIntensity: 0.15 }),
+  codeGrey: new THREE.MeshStandardMaterial({ color: "#6d7268" }),
+  codeSage: new THREE.MeshStandardMaterial({ color: "#9fbf7a", emissive: "#9fbf7a", emissiveIntensity: 0.2 }),
+  glass: new THREE.MeshPhysicalMaterial({ color: "#ffffff", transmission: 1, roughness: 0.08, thickness: 0.6, ior: 1.45, clearcoat: 1 }),
+};
+const box = (w, h, d, mat, r = 0.04) => new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 3, Math.min(r, w / 2 - 0.001, h / 2 - 0.001, d / 2 - 0.001)), mat);
+const at = (m, x, y, z = 0) => (m.position.set(x, y, z), m);
+
+// ---------- Builders (local space, facing +z) ----------
+function browser() {
+  const g = new THREE.Group();
+  const dark = rand() < 0.35;
+  g.add(box(4.2, 2.8, 0.12, M.frame, 0.1));
+  g.add(at(box(4.0, 0.3, 0.03, M.bar, 0.06), 0, 1.2, 0.07));
+  [["#cbf36b", -1.82], ["#e9e8e0", -1.66], ["#6d7268", -1.5]].forEach(([c, x]) =>
+    g.add(at(new THREE.Mesh(new THREE.SphereGeometry(0.045, 16, 16), new THREE.MeshStandardMaterial({ color: c })), x, 1.2, 0.1))
+  );
+  g.add(at(box(1.5, 0.14, 0.02, M.frame, 0.07), 0.1, 1.2, 0.09));
+  g.add(at(box(4.0, 2.32, 0.03, dark ? M.screenDark : M.screen, 0.05), 0, -0.13, 0.07));
+  const ink = dark ? M.codeWhite : M.ink;
+  const z = 0.11;
+  g.add(at(box(0.3, 0.12, 0.04, M.lime, 0.04), -1.7, 0.86, z));
+  [0.6, 1.0, 1.4].forEach((x) => g.add(at(box(0.28, 0.05, 0.03, M.grey, 0.02), x, 0.86, z)));
+  const layout = Math.floor(rand() * 3);
+  if (layout === 0) {
+    g.add(at(box(1.7, 0.18, 0.05, ink, 0.05), -0.9, 0.42, z));
+    g.add(at(box(1.2, 0.18, 0.05, ink, 0.05), -1.15, 0.17, z));
+    g.add(at(box(0.65, 0.2, 0.07, M.lime, 0.1), -1.42, -0.15, z));
+    g.add(at(box(1.5, 1.0, 0.06, M.limeSoft, 0.07), 1.0, 0.2, z));
+    [-1.3, 0, 1.3].forEach((x) => g.add(at(box(1.15, 0.5, 0.05, dark ? M.bar : M.white, 0.05), x, -0.85, z)));
+  } else if (layout === 1) {
+    g.add(at(box(2.4, 0.2, 0.05, ink, 0.05), 0, 0.45, z));
+    g.add(at(box(1.6, 0.06, 0.03, M.grey, 0.02), 0, 0.2, z));
+    g.add(at(box(0.7, 0.2, 0.07, M.lime, 0.1), 0, -0.07, z));
+    [-1.35, -0.45, 0.45, 1.35].forEach((x, i) => g.add(at(box(0.8, 0.62, 0.05, i === 2 ? M.limeSoft : dark ? M.bar : M.white, 0.05), x, -0.75, z)));
+  } else {
+    g.add(at(box(0.9, 1.75, 0.05, dark ? M.bar : M.white, 0.05), -1.45, -0.25, z));
+    [0.55, 0.3, 0.05, -0.2].forEach((y) => g.add(at(box(0.6, 0.06, 0.03, M.grey, 0.02), -1.45, y, z + 0.03)));
+    g.add(at(box(2.6, 0.9, 0.05, M.limeSoft, 0.06), 0.45, 0.2, z));
+    g.add(at(box(1.25, 0.6, 0.05, dark ? M.bar : M.white, 0.05), -0.22, -0.65, z));
+    g.add(at(box(1.25, 0.6, 0.05, dark ? M.bar : M.white, 0.05), 1.12, -0.65, z));
+  }
+  return g;
+}
+function codePanel() {
+  const g = new THREE.Group();
+  g.add(box(3.2, 2.3, 0.1, M.frame, 0.09));
+  const mats = [M.codeLime, M.codeWhite, M.codeGrey, M.codeSage];
+  for (let j = 0; j < 8; j++) {
+    let x = -1.35 + pick([0, 0, 0.2, 0.4]);
+    const segs = 1 + Math.floor(rand() * 3);
+    for (let s = 0; s < segs && x < 1.1; s++) {
+      const len = Math.min(0.25 + rand() * 0.8, 1.35 - x);
+      if (len < 0.15) break;
+      g.add(at(box(len, 0.07, 0.03, pick(mats), 0.03), x + len / 2, 0.8 - j * 0.22, 0.07));
+      x += len + 0.08;
+    }
+  }
+  return g;
+}
+function phone() {
+  const g = new THREE.Group();
+  g.add(box(1.1, 2.2, 0.1, M.frame, 0.15));
+  g.add(at(box(0.96, 2.0, 0.02, M.screen, 0.1), 0, 0, 0.06));
+  g.add(at(box(0.7, 0.1, 0.03, M.ink, 0.04), 0, 0.55, 0.08));
+  g.add(at(box(0.4, 0.13, 0.04, M.lime, 0.06), -0.15, 0.3, 0.08));
+  g.add(at(box(0.78, 0.5, 0.03, M.limeSoft, 0.05), 0, -0.15, 0.08));
+  g.add(at(box(0.78, 0.35, 0.03, M.white, 0.05), 0, -0.65, 0.08));
+  return g;
+}
+function chip() {
+  const g = new THREE.Group();
+  const kind = Math.floor(rand() * 4);
+  if (kind === 0) {
+    g.add(box(1.5, 0.48, 0.18, M.lime, 0.22));
+    g.add(at(box(0.7, 0.08, 0.04, M.ink, 0.04), 0, 0, 0.1));
+  } else if (kind === 1) {
+    g.add(box(1.0, 0.5, 0.16, M.ink, 0.24));
+    g.add(at(new THREE.Mesh(new THREE.SphereGeometry(0.19, 32, 32), M.lime), 0.24, 0, 0.1));
+  } else if (kind === 2) {
+    g.add(box(2.2, 0.75, 0.1, M.white, 0.12));
+    g.add(at(new THREE.Mesh(new THREE.SphereGeometry(0.2, 32, 32), M.limeSoft), -0.75, 0, 0.08));
+    g.add(at(box(1.1, 0.09, 0.03, M.ink, 0.04), 0.2, 0.12, 0.07));
+    g.add(at(box(0.8, 0.06, 0.03, M.grey, 0.03), 0.05, -0.1, 0.07));
+  } else {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(0.55, 48, 48), M.glass);
+    g.add(s);
+  }
+  return g;
+}
+let font = null;
+const glyphGeos = {};
+function glyph() {
+  const text = pick(["</>", "{ }", "</>", "( )", "</>"]);
+  glyphGeos[text] ??= (() => {
+    const g = new TextGeometry(text, { font, size: 0.9, depth: 0.2, curveSegments: 8, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.02, bevelSegments: 3 });
+    g.center();
+    return g;
+  })();
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(glyphGeos[text], rand() < 0.7 ? M.lime : M.white));
+  return g;
+}
+
+// ---------- Field ----------
+const items = [];
+function buildField() {
+  const COUNT = 60;
+  for (let i = 0; i < COUNT; i++) {
+    const r = rand();
+    const make = r < 0.28 ? browser : r < 0.48 ? codePanel : r < 0.58 ? phone : r < 0.76 ? chip : glyph;
+    const obj = make();
+    let x, y;
+    do {
+      x = (rand() * 2 - 1) * 15;
+      y = (rand() * 2 - 1) * 8;
+    } while (Math.abs(x) < 4.2 && Math.abs(y) < 2.6); // keep the headline area clear
+    const z0 = FAR + (i / COUNT) * L + rand() * 0.8;
+    const sc = (make === browser ? 1 : make === codePanel ? 1 : 1) * (0.75 + rand() * 0.45);
+    obj.scale.setScalar(sc);
+    scene.add(obj);
+    items.push({
+      obj, x, y, z0,
+      ry: -Math.sign(x) * (0.25 + rand() * 0.25),
+      rx: Math.sign(y) * (0.1 + rand() * 0.12),
+      ph: rand() * TAU,
+      bob: 0.15 + rand() * 0.25,
+    });
+  }
+}
+const wrap = (z) => ((((z - FAR) % L) + L) % L) + FAR;
+
+function update(frame) {
+  const u = (frame % N) / N;
+  for (const it of items) {
+    const z = wrap(it.z0 + L * u);
+    it.obj.position.set(it.x, it.y + it.bob * Math.sin(TAU * u + it.ph), z);
+    it.obj.rotation.set(it.rx + 0.08 * Math.sin(TAU * u + it.ph), it.ry + 0.12 * Math.sin(TAU * u + it.ph * 1.3), 0.04 * Math.cos(TAU * u + it.ph));
+  }
+  camera.position.set(0.8 * Math.sin(TAU * u), 0.4 * Math.sin(TAU * u * 2), 12);
+  camera.lookAt(0, 0, -20);
+}
+
+window.renderFrame = (f) => { update(f); renderer.render(scene, camera); };
+window.renderAll = async (from = 0, to = N) => {
+  for (let f = from; f < to; f++) {
+    window.renderFrame(f);
+    const blob = await new Promise((r) => renderer.domElement.toBlob(r, "image/jpeg", 0.92));
+    await fetch(`/frame/${f}`, { method: "POST", body: blob });
+    document.title = `frame ${f + 1}/${N}`;
+  }
+  document.title = "done";
+};
+
+new FontLoader().load("/node_modules/three/examples/fonts/helvetiker_bold.typeface.json", (f) => {
+  font = f;
+  buildField();
+  window.renderFrame(Number(q.get("f") || 0));
+  document.title = "ready";
+  if (q.get("auto") === "1") window.renderAll();
+});
+</script>
+</body>
+</html>

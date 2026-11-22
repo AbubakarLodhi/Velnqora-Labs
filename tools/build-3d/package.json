@@ -1,0 +1,8 @@
+{
+  "name": "build-3d-render",
+  "private": true,
+  "type": "module",
+  "description": "Offline renderer for public/video/build-3d.*",
+  "scripts": { "serve": "node server.mjs" },
+  "dependencies": { "three": "0.170.0" }
+}
