@@ -60,7 +60,7 @@ export default async function PostPage({ params }: { params: Params }) {
         </header>
         <div className="container">
           <div className="media media--cinema" data-reveal="clip" data-parallax="0.08">
-            <Image src={post.image} alt="" fill priority sizes="(min-width: 1600px) 1600px, 100vw" />
+            <Image src={post.image} alt={post.imageAlt} fill priority sizes="(min-width: 1600px) 1600px, 100vw" />
           </div>
         </div>
         <div className="section container">

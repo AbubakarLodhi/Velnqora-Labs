@@ -34,8 +34,7 @@ export function Header() {
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
   const close = () => setOpen(false);
 
-  // Mobile menu also surfaces Case studies and Blog, as the footer does.
-  const mobileNav = [...mainNav.slice(0, 3), { label: "Case studies", href: "/case-study" }, { label: "Blog", href: "/blog" }, mainNav[3]];
+  const mobileNav = mainNav;
 
   return (
     <header className={`site-header${scrolled ? " is-scrolled" : ""}`}>
@@ -55,7 +54,7 @@ export function Header() {
           </ul>
           <div className="nav-cta">
             <Link href="/contact" className="btn btn--primary">
-              Book a slot
+              Start a project
             </Link>
           </div>
           <button
@@ -86,7 +85,7 @@ export function Header() {
               ))}
             </ul>
             <Link href="/contact" className="btn btn--primary" onClick={close}>
-              Book a slot
+              Start a project
             </Link>
           </div>
         )}

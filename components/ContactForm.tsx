@@ -1,22 +1,23 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
-import { EMAIL_RE } from "./EmailCapture";
+import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { services } from "@/lib/data";
 
-type Values = { name: string; email: string; phone: string; message: string; schedule: boolean };
+type Values = { name: string; email: string; company: string; service: string; budget: string; message: string };
 type Errors = Partial<Record<keyof Values, string>>;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-function validate(v: Values): Errors {
-  const e: Errors = {};
-  if (v.name.trim().length < 2) e.name = "Please enter your name.";
-  if (!EMAIL_RE.test(v.email.trim())) e.email = "Please enter a valid email address.";
-  if (v.phone.trim() && !/^[+()\d\s.-]{7,20}$/.test(v.phone.trim())) e.phone = "Use digits, spaces and + ( ) - only.";
-  if (v.message.trim().length < 10) e.message = "Tell us a little more (at least 10 characters).";
-  return e;
+function validate(values: Values): Errors {
+  const errors: Errors = {};
+  if (values.name.trim().length < 2) errors.name = "Please enter your name.";
+  if (!EMAIL_RE.test(values.email.trim())) errors.email = "Please enter a valid email address.";
+  if (!values.service) errors.service = "Choose a service or select “Not sure yet”.";
+  if (values.message.trim().length < 10) errors.message = "Tell us a little more (at least 10 characters).";
+  return errors;
 }
 
-export function ContactForm({ defaultEmail = "", defaultSchedule = false, defaultMessage = "" }: { defaultEmail?: string; defaultSchedule?: boolean; defaultMessage?: string }) {
-  const [values, setValues] = useState<Values>({ name: "", email: defaultEmail, phone: "", message: defaultMessage, schedule: defaultSchedule });
+export function ContactForm({ defaultEmail = "" }: { defaultEmail?: string }) {
+  const [values, setValues] = useState<Values>({ name: "", email: defaultEmail, company: "", service: "", budget: "", message: "" });
   const [errors, setErrors] = useState<Errors>({});
   const [touched, setTouched] = useState<Partial<Record<keyof Values, boolean>>>({});
   const [submitted, setSubmitted] = useState(false);
@@ -24,34 +25,30 @@ export function ContactForm({ defaultEmail = "", defaultSchedule = false, defaul
   const formRef = useRef<HTMLFormElement>(null);
   const successRef = useRef<HTMLDivElement>(null);
 
-  const set = <K extends keyof Values>(key: K, value: Values[K]) => {
+  const set = (key: keyof Values, value: string) => {
     const next = { ...values, [key]: value };
     setValues(next);
     if (touched[key]) setErrors(validate(next));
   };
 
   const blur = (key: keyof Values) => {
-    setTouched((t) => ({ ...t, [key]: true }));
+    setTouched((current) => ({ ...current, [key]: true }));
     setErrors(validate(values));
   };
 
-  function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    const errs = validate(values);
-    setErrors(errs);
-    setTouched({ name: true, email: true, phone: true, message: true });
-    if (Object.keys(errs).length) {
-      setSubmitError("Please fix the highlighted fields.");
-      const first = Object.keys(errs)[0];
+  function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    const nextErrors = validate(values);
+    setErrors(nextErrors);
+    setTouched({ name: true, email: true, company: true, service: true, budget: true, message: true });
+    if (Object.keys(nextErrors).length) {
+      setSubmitError("Please review the highlighted fields.");
+      const first = Object.keys(nextErrors)[0];
       formRef.current?.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
       return;
     }
+
     setSubmitError("");
-    /*
-     * Backend integration point: POST `values` to a route handler (e.g. app/api/contact/route.ts)
-     * that forwards to your CRM, email service (Resend, Postmark) or form backend. Nothing is
-     * transmitted in this demo.
-     */
     setSubmitted(true);
     requestAnimationFrame(() => successRef.current?.focus());
   }
@@ -59,38 +56,38 @@ export function ContactForm({ defaultEmail = "", defaultSchedule = false, defaul
   if (submitted) {
     return (
       <div className="success-panel" ref={successRef} tabIndex={-1} role="status">
-        <h2>Thanks, {values.name.split(" ")[0]}!</h2>
+        <h2>Thanks, {values.name.split(" ")[0]}.</h2>
         <p>
-          Your message is ready to go. {values.schedule ? "We'll follow up with a few times for a call. " : ""}
-          (Demo site: nothing was sent — connect a backend to deliver messages.)
+          Your details are entered, but this form does not send or store submissions yet. Please connect a form service before using it to receive
+          project enquiries.
         </p>
         <button
           type="button"
           className="btn btn--primary"
           onClick={() => {
-            setValues({ name: "", email: "", phone: "", message: "", schedule: false });
+            setValues({ name: "", email: "", company: "", service: "", budget: "", message: "" });
             setTouched({});
             setErrors({});
             setSubmitted(false);
           }}
         >
-          Send another message
+          Start another enquiry
         </button>
       </div>
     );
   }
 
-  const fieldProps = (key: "name" | "email" | "phone" | "message") => ({
+  const fieldProps = (key: keyof Values) => ({
     id: `cf-${key}`,
     name: key,
     value: values[key],
-    onChange: (e: { target: { value: string } }) => set(key, e.target.value),
+    onChange: (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => set(key, event.target.value),
     onBlur: () => blur(key),
     "aria-invalid": touched[key] && !!errors[key],
     "aria-describedby": touched[key] && errors[key] ? `cf-${key}-err` : undefined,
   });
 
-  const err = (key: keyof Values) =>
+  const error = (key: keyof Values) =>
     touched[key] && errors[key] ? (
       <span id={`cf-${key}-err`} className="field-error">
         {errors[key]}
@@ -98,34 +95,49 @@ export function ContactForm({ defaultEmail = "", defaultSchedule = false, defaul
     ) : null;
 
   return (
-    <form ref={formRef} className="form-card" onSubmit={onSubmit} noValidate aria-label="Contact form">
+    <form ref={formRef} className="form-card" method="post" onSubmit={onSubmit} noValidate aria-label="Project enquiry form">
+      <p className="form-note">Your details stay in this browser; this form is not connected to a submission service.</p>
       <div className="form-grid">
         <div className="field">
-          <label htmlFor="cf-name">Full name</label>
+          <label htmlFor="cf-name">Name</label>
           <input type="text" autoComplete="name" required {...fieldProps("name")} />
-          {err("name")}
+          {error("name")}
         </div>
         <div className="field">
           <label htmlFor="cf-email">Email</label>
           <input type="email" autoComplete="email" inputMode="email" required {...fieldProps("email")} />
-          {err("email")}
+          {error("email")}
         </div>
-        <div className="field full">
-          <label htmlFor="cf-phone">
-            Phone <span className="optional">(optional)</span>
+        <div className="field">
+          <label htmlFor="cf-company">
+            Company <span className="optional">(optional)</span>
           </label>
-          <input type="tel" autoComplete="tel" inputMode="tel" {...fieldProps("phone")} />
-          {err("phone")}
+          <input type="text" autoComplete="organization" {...fieldProps("company")} />
+        </div>
+        <div className="field">
+          <label htmlFor="cf-service">Service</label>
+          <select required {...fieldProps("service")}>
+            <option value="">Choose a service</option>
+            {services.map((service) => (
+              <option key={service.slug} value={service.title}>
+                {service.title}
+              </option>
+            ))}
+            <option value="Not sure yet">Not sure yet</option>
+          </select>
+          {error("service")}
         </div>
         <div className="field full">
-          <label htmlFor="cf-message">How can we help?</label>
-          <textarea required {...fieldProps("message")} />
-          {err("message")}
+          <label htmlFor="cf-budget">
+            Project budget <span className="optional">(optional)</span>
+          </label>
+          <input type="text" autoComplete="off" placeholder="Share an estimated range or say “to be discussed”" {...fieldProps("budget")} />
         </div>
-        <label className="checkbox full">
-          <input type="checkbox" name="schedule" checked={values.schedule} onChange={(e) => set("schedule", e.target.checked)} />
-          <span>I&apos;d like to schedule a free 30-minute discovery call.</span>
-        </label>
+        <div className="field full">
+          <label htmlFor="cf-message">Project description</label>
+          <textarea required placeholder="What are you looking to build, improve, or explore?" {...fieldProps("message")} />
+          {error("message")}
+        </div>
         {submitError && (
           <p className="form-status form-status--error full" role="alert">
             {submitError}
@@ -133,7 +145,7 @@ export function ContactForm({ defaultEmail = "", defaultSchedule = false, defaul
         )}
         <div className="full">
           <button type="submit" className="btn btn--primary">
-            Send message
+            Send project enquiry
           </button>
         </div>
       </div>

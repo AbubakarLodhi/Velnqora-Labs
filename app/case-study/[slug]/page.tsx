@@ -3,7 +3,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CaseCard, CTABand, PageHero, SectionHead } from "@/components/Blocks";
-import { CountUp } from "@/components/CountUp";
 import { ArrowRight } from "@/components/Icons";
 import { caseStudies } from "@/lib/data";
 
@@ -30,8 +29,8 @@ export default async function CaseStudyPage({ params }: { params: Params }) {
   return (
     <>
       <PageHero
-        crumbs={[{ label: "Home", href: "/" }, { label: "Case studies", href: "/case-study" }, { label: item.title }]}
-        eyebrow={item.category}
+        crumbs={[{ label: "Home", href: "/" }, { label: "Portfolio", href: "/portfolio" }, { label: item.title }]}
+        eyebrow={`Concept project · ${item.category}`}
         title={item.title}
         lead={item.summary}
       />
@@ -39,7 +38,7 @@ export default async function CaseStudyPage({ params }: { params: Params }) {
       <section className="section--tight" style={{ paddingTop: 0 }}>
         <div className="container">
           <div className="media media--cinema" data-reveal="clip" data-parallax="0.08">
-            <Image src={item.image} alt={`${item.title} project for ${item.client}`} fill priority sizes="(min-width: 1600px) 1600px, 100vw" />
+            <Image src={item.image} alt={item.imageAlt} fill priority sizes="(min-width: 1600px) 1600px, 100vw" />
           </div>
         </div>
       </section>
@@ -57,40 +56,23 @@ export default async function CaseStudyPage({ params }: { params: Params }) {
                 <li key={a}>{a}</li>
               ))}
             </ol>
-            <h2>The outcome</h2>
+            <h2>Concept direction</h2>
             <p>{item.outcome}</p>
-            <div className="outcome-strip" style={{ marginTop: 8 }}>
-              {item.metrics.map((m) => (
-                <div key={m.label}>
-                  <strong>
-                    <CountUp value={m.value} />
-                  </strong>
-                  <span>{m.label}</span>
-                </div>
-              ))}
-            </div>
+            <p className="concept-disclaimer">This is demonstration work, not a real client project or a report of delivered results.</p>
           </div>
           <aside className="detail-aside" aria-label="Project details">
             <dl>
               <div>
-                <dt>Client</dt>
-                <dd>{item.client}</dd>
+                <dt>Project type</dt>
+                <dd>Concept project</dd>
               </div>
               <div>
-                <dt>Category</dt>
+                <dt>Discipline</dt>
                 <dd>{item.category}</dd>
-              </div>
-              <div>
-                <dt>Year</dt>
-                <dd>{item.year}</dd>
-              </div>
-              <div>
-                <dt>Duration</dt>
-                <dd>{item.duration}</dd>
               </div>
             </dl>
             <Link href="/contact" className="btn btn--primary">
-              Start a similar project <ArrowRight />
+              Discuss your project <ArrowRight />
             </Link>
           </aside>
         </div>
@@ -100,11 +82,11 @@ export default async function CaseStudyPage({ params }: { params: Params }) {
         <div className="container">
           <SectionHead
             split
-            eyebrow="More work"
-            title="Related case studies"
+            eyebrow="More concepts"
+            title="Related concept projects"
             action={
-              <Link href="/case-study" className="btn btn--ghost">
-                All case studies <ArrowRight />
+              <Link href="/portfolio" className="btn btn--ghost">
+                Explore the portfolio <ArrowRight />
               </Link>
             }
           />

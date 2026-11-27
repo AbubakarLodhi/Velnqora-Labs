@@ -21,9 +21,9 @@ export function CaseStudyGrid({ items, categories }: { items: CaseStudy[]; categ
   const shown = cat === "All" ? items : items.filter((i) => i.category === cat);
   return (
     <>
-      <Filters options={categories} value={cat} onChange={setCat} label="Filter case studies by category" />
+      <Filters options={categories} value={cat} onChange={setCat} label="Filter concept projects by category" />
       <p className="sr-only" aria-live="polite">
-        {shown.length} case {shown.length === 1 ? "study" : "studies"} shown
+        {shown.length} concept {shown.length === 1 ? "project" : "projects"} shown
       </p>
       {shown.length ? (
         <div className="grid grid-2">
@@ -32,7 +32,7 @@ export function CaseStudyGrid({ items, categories }: { items: CaseStudy[]; categ
           ))}
         </div>
       ) : (
-        <p className="empty-state">No case studies in this category yet.</p>
+        <p className="empty-state">No concept projects in this category yet.</p>
       )}
     </>
   );

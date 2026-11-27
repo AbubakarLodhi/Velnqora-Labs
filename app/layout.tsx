@@ -9,8 +9,21 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "sw
 const display = Inter_Tight({ subsets: ["latin"], variable: "--font-display-face", weight: ["400", "500", "600"], display: "swap" });
 
 export const metadata: Metadata = {
-  title: { default: "Velnqora Labs — Business consulting made simple", template: "%s · Velnqora Labs" },
-  description: "Strategy, operations and analytics consulting that makes business stuff easier to handle.",
+  title: { default: "Velnqora Labs | Digital Technology Agency", template: "%s | Velnqora Labs" },
+  description:
+    "A digital technology agency building custom websites, mobile applications, AI and machine learning solutions, and digital marketing strategies.",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    siteName: "Velnqora Labs",
+    title: "Velnqora Labs | Digital Technology Agency",
+    description: "Digital products, practical AI, and thoughtful growth for ambitious businesses.",
+  },
+  twitter: {
+    card: "summary",
+    title: "Velnqora Labs | Digital Technology Agency",
+    description: "Digital products, practical AI, and thoughtful growth for ambitious businesses.",
+  },
 };
 
 export const viewport: Viewport = {

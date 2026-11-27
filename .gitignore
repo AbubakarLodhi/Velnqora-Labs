@@ -8,3 +8,5 @@ next-env.d.ts
 .playwright-mcp
 tools/build-3d/node_modules
 tools/build-3d/frames
+
+.next-verification/

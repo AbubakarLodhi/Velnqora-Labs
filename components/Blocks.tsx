@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { formatDate, formatPrice, processSteps, type CaseStudy, type Plan, type Post } from "@/lib/data";
+import { formatDate, processSteps, type CaseStudy, type Post } from "@/lib/data";
 import { ArrowRight } from "./Icons";
 import { Split } from "./Split";
 
@@ -99,31 +99,21 @@ export function SectionHead({
 
 /* ---------- Case study card ---------- */
 export function CaseCard({ item, delay = 0 }: { item: CaseStudy; delay?: number }) {
-  const lead = item.metrics[0];
   return (
     <article className="card" data-reveal style={{ ["--delay" as string]: `${delay}ms` }}>
       <div className="media media--wide">
-        <Image src={item.image} alt={`${item.title} project for ${item.client}`} fill sizes="(min-width: 900px) 600px, 100vw" />
-        <span className="tag">{item.category}</span>
+        <Image src={item.image} alt={item.imageAlt} fill sizes="(min-width: 900px) 600px, 100vw" />
+        <span className="tag">Concept project</span>
       </div>
       <div className="card-meta">
-        <span>{item.client}</span>
-        <span>{item.year}</span>
+        <span>{item.category}</span>
+        <span>Demonstration work</span>
       </div>
       <h3>
         <Link href={`/case-study/${item.slug}`}>{item.title}</Link>
       </h3>
       <p>{item.summary}</p>
-      <div className="card-result">
-        <div>
-          <strong>{lead.value}</strong>
-          <span>{lead.label}</span>
-        </div>
-        <div>
-          <strong>{item.metrics[1].value}</strong>
-          <span>{item.metrics[1].label}</span>
-        </div>
-      </div>
+      <p className="concept-disclaimer">An illustrative concept, not a client engagement.</p>
     </article>
   );
 }
@@ -133,7 +123,7 @@ export function PostCard({ post, delay = 0 }: { post: Post; delay?: number }) {
   return (
     <article className="card" data-reveal style={{ ["--delay" as string]: `${delay}ms` }}>
       <div className="media media--wide">
-        <Image src={post.image} alt="" fill sizes="(min-width: 900px) 400px, 100vw" />
+        <Image src={post.image} alt={post.imageAlt} fill sizes="(min-width: 900px) 400px, 100vw" />
         <span className="tag">{post.category}</span>
       </div>
       <div className="card-meta">
@@ -148,49 +138,10 @@ export function PostCard({ post, delay = 0 }: { post: Post; delay?: number }) {
   );
 }
 
-/* ---------- Pricing cards ---------- */
-export function PricingCards({ plans }: { plans: Plan[] }) {
-  return (
-    <>
-      <div className="pricing-grid">
-        {plans.map((plan, i) => (
-          <article key={plan.slug} className={`plan${plan.featured ? " plan--featured on-dark" : ""}`} data-reveal style={{ ["--delay" as string]: `${i * 80}ms` }}>
-            {plan.featured && <span className="plan-badge">Most popular</span>}
-            <div>
-              <h3>{plan.name}</h3>
-              <p className="plan-aud">{plan.audience}</p>
-            </div>
-            <p className="plan-price">
-              {formatPrice(plan.price)}
-              {plan.price !== null && <small> /month</small>}
-            </p>
-            <p className="plan-aud">{plan.price !== null ? `Includes ${plan.hours}` : `For ${plan.hours}`}</p>
-            <ul className="check-list">
-              {plan.features.map((f) => (
-                <li key={f}>{f}</li>
-              ))}
-            </ul>
-            <p className="plan-foot">{plan.extra}</p>
-            <div className="plan-actions">
-              <Link href={`/contact?plan=${plan.slug}#contact-form`} className={`btn ${plan.featured ? "btn--lime" : "btn--primary"}`}>
-                {plan.price === null ? "Contact us" : "Get started"}
-              </Link>
-              <Link href={`/pricing-plan/${plan.slug}`} className="link-arrow" aria-label={`${plan.name} plan details`}>
-                Plan details <ArrowRight size={14} />
-              </Link>
-            </div>
-          </article>
-        ))}
-      </div>
-      <p className="placeholder-note">Sample pricing shown for demonstration only — not a real offer.</p>
-    </>
-  );
-}
-
 /* ---------- CTA band ---------- */
 export function CTABand({
-  title = "Ready to move your business forward?",
-  body = "Book a free 30-minute call. We'll listen, ask the hard questions, and tell you honestly whether we can help.",
+  title = "Ready to move your idea forward?",
+  body = "Tell us what you want to build or improve. We’ll start with the problem, the people it affects, and what a good outcome looks like.",
   image = "/images/high-five.jpg",
 }: {
   title?: string;
@@ -208,10 +159,10 @@ export function CTABand({
           <p>{body}</p>
           <div className="btn-row">
             <Link href="/contact" className="btn btn--lime">
-              Book a slot <ArrowRight />
+              Start a project <ArrowRight />
             </Link>
-            <Link href="/pricing" className="btn btn--ghost">
-              See pricing
+            <Link href="/services" className="btn btn--ghost">
+              Explore services
             </Link>
           </div>
         </div>
